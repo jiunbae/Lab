@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-## Paper Name
+## Paper
 - [paper]()
 - [code]()
 
