@@ -71,18 +71,18 @@ class Lambda(object):
 
 
 class ConvertFromInts(object):
-    def __call__(self, image, boxes=None, labels=None):
-        return image.astype(np.float32), boxes, labels
+    def __call__(self, image, *targets):
+        return (image.astype(np.float32), *targets)
 
 
 class SubtractMeans(object):
     def __init__(self, mean):
         self.mean = np.array(mean, dtype=np.float32)
 
-    def __call__(self, image, boxes=None, labels=None):
+    def __call__(self, image, *targets):
         image = image.astype(np.float32)
         image -= self.mean
-        return image.astype(np.float32), boxes, labels
+        return (image.astype(np.float32), *targets)
 
 
 class ToAbsoluteCoords(object):
@@ -111,10 +111,10 @@ class Resize(object):
     def __init__(self, size=(300, 300)):
         self.size = size
 
-    def __call__(self, image, boxes=None, labels=None):
+    def __call__(self, image, *targets):
         if image.shape[:2] != self.size:
             image = cv2.resize(image, self.size)
-        return image, boxes, labels
+        return (image, *targets)
 
 
 class RandomSaturation(object):
@@ -344,23 +344,31 @@ class Expand(object):
 
 
 class RandomMirror(object):
-    def __init__(self, vertical: bool = False, horizontal: bool = True):
+    def __init__(self, vertical: bool = False, horizontal: bool = True, only_image: bool = False):
         self.vertical = vertical
         self.horizontal = horizontal
+        self.only_image = only_image
 
-    def __call__(self, image, boxes, classes):
+    def __call__(self, image, *targets):
         height, width, *_ = image.shape
 
-        boxes = boxes.copy()
         if self.vertical and np.random.randint(2):
             image = cv2.flip(image, 0)
-            boxes[:, 1::2] = height - boxes[:, 3::-2]
+            if not self.only_image:
+                boxes, classes = targets
+                boxes = boxes.copy()
+                boxes[:, 1::2] = height - boxes[:, 3::-2]
+                targets = (boxes, classes)
 
         if self.horizontal and np.random.randint(2):
             image = cv2.flip(image, 1)
-            boxes[:, 0::2] = width - boxes[:, 2::-2]
+            if not self.only_image:
+                boxes, classes = targets
+                boxes = boxes.copy()
+                boxes[:, 0::2] = width - boxes[:, 2::-2]
+                targets = (boxes, classes)
 
-        return image, boxes, classes
+        return (image, *targets)
 
 
 class SwapChannels(object):
@@ -454,3 +462,20 @@ class Detection(Augmentation):
 
     def __call__(self, img, boxes, labels):
         return self.augment(img, boxes, labels)
+
+
+class Calib(Augmentation):
+    def __init__(self, size: Tuple[int, int] = (300, 300),
+                 mean: Tuple[float, float, float] = (97.06, 97.53, 95.62),
+                 **kwargs):
+        self.mean = mean
+        self.size = size
+        self.augment = Compose([
+            ConvertFromInts(),
+            RandomMirror(horizontal=True, vertical=True, only_image=True),
+            Resize(self.size),
+            SubtractMeans(self.mean),
+        ])
+
+    def __call__(self, img, *targets):
+        return self.augment(img, *targets)

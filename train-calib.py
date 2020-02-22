@@ -59,14 +59,14 @@ def init(model: nn.Module, device: torch.device,
     return model, optimizer
 
 
-def train_gan(model: nn.Module, dataset: Dataset,
+def train_calib(model: nn.Module, dataset: Dataset,
               criterion: nn.Module, optimizer: optim.Optimizer,
               device: torch.device = None, args: Arguments.parse.Namespace = None, **kwargs) \
         -> Iterator[dict]:
     batch = args.batch
 
     loader = data.DataLoader(dataset, args.batch, num_workers=args.worker, drop_last=True,
-                             shuffle=True, collate_fn=Dataset.collate, pin_memory=True)
+                             shuffle=True, collate_fn=dataset.collate, pin_memory=True)
     iterator = iter(loader)
 
     with tqdm(total=args.epoch, initial=args.start_epoch) as tq:
@@ -79,14 +79,13 @@ def train_gan(model: nn.Module, dataset: Dataset,
                 iterator = iter(loader)
                 images, targets = next(iterator)
 
-            inputs = Variable(inputs.to(device), requires_grad=False)
-            targets = Variable(targets.to(device), requires_grad=False)
+            inputs = Variable(images.to(device), requires_grad=False)
+            targets = tuple(map(lambda x: Variable(x.to(device), requires_grad=False), targets))
 
             outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
 
             optimizer.zero_grad()
-            loss = criterion(outputs, targets)
+            loss = sum(criterion(output, target) for output, target in zip(outputs, targets))
             loss.backward()
             optimizer.step()
 
