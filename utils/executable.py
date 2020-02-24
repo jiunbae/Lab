@@ -31,12 +31,10 @@ class Executable:
         self.log('Model initialized')
         return results
 
-    def __call__(self, *args, dataset=None, criterion=None, optimizer=None, device=None, **kwargs):
+    def __call__(self, *args, **kwargs):
         self.log(f'Execute: {self.command}', {
-            'dataset': dataset,
-            'criterion': criterion,
-            'optimizer': optimizer,
-            'device': device,
+            key: value for key, value in kwargs.items()
+            if key in ('dataset', 'criterion', 'optimizer', 'device')
         })
 
         for dump in getattr(self.module, self.name)(*args, **kwargs):
