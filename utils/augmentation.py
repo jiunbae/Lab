@@ -50,13 +50,13 @@ class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, img, boxes=None, labels=None):
+    def __call__(self, img, targets):
         for t in self.transforms:
             try:
-                img, boxes, labels = t(img, boxes, labels)
+                img, targets = t(img, targets)
             except TypeError:
                 img = t(img)
-        return img, boxes, labels
+        return img, targets
 
 
 class Lambda(object):
@@ -71,18 +71,18 @@ class Lambda(object):
 
 
 class ConvertFromInts(object):
-    def __call__(self, image, *targets):
-        return (image.astype(np.float32), *targets)
+    def __call__(self, image, targets):
+        return (image.astype(np.float32), targets)
 
 
 class SubtractMeans(object):
     def __init__(self, mean):
         self.mean = np.array(mean, dtype=np.float32)
 
-    def __call__(self, image, *targets):
+    def __call__(self, image, targets):
         image = image.astype(np.float32)
         image -= self.mean
-        return (image.astype(np.float32), *targets)
+        return image.astype(np.float32), targets
 
 
 class ToAbsoluteCoords(object):
@@ -111,10 +111,10 @@ class Resize(object):
     def __init__(self, size=(300, 300)):
         self.size = size
 
-    def __call__(self, image, *targets):
+    def __call__(self, image, targets):
         if image.shape[:2] != self.size:
             image = cv2.resize(image, self.size)
-        return (image, *targets)
+        return image, targets
 
 
 class RandomSaturation(object):
@@ -349,7 +349,7 @@ class RandomMirror(object):
         self.horizontal = horizontal
         self.only_image = only_image
 
-    def __call__(self, image, *targets):
+    def __call__(self, image, targets):
         height, width, *_ = image.shape
 
         if self.vertical and np.random.randint(2):
@@ -368,7 +368,7 @@ class RandomMirror(object):
                 boxes[:, 0::2] = width - boxes[:, 2::-2]
                 targets = (boxes, classes)
 
-        return (image, *targets)
+        return image, targets
 
 
 class SwapChannels(object):
@@ -477,5 +477,5 @@ class Calib(Augmentation):
             SubtractMeans(self.mean),
         ])
 
-    def __call__(self, img, *targets):
-        return self.augment(img, *targets)
+    def __call__(self, img, targets):
+        return self.augment(img, targets)

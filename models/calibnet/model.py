@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 import torch.nn as nn
@@ -27,30 +27,26 @@ class swish(nn.Module):
 
 
 class CalibNet(Model):
-    LOSS = LogCoshLoss
+    LOSS = nn.CrossEntropyLoss
+    # LOSS = LogCoshLoss
 
-    def __init__(self, focal_x_size: int, focal_y_size: int, batch_size: int):
+    def __init__(self, param: List[int], batch_size: int):
         super(CalibNet, self).__init__()
         self.batch_size_ = batch_size
-        self.focal_x_size = focal_x_size
-        self.focal_y_size = focal_y_size
+        self.param = param
 
         self.feature = self.backbone()
-
-        self.focal_x = nn.Sequential(
-            nn.Linear(2048, 512),
-            nn.ReLU(),
-            nn.Linear(512, 1),
-        )
-        self.focal_y = nn.Sequential(
-            nn.Linear(2048, 512),
-            nn.ReLU(),
-            nn.Linear(512, 1),
-        )
+        self.linear = nn.ModuleList([
+            nn.Sequential(
+              nn.Linear(2048, 512),
+              nn.ReLU(),
+              nn.Linear(512, parameter),
+            ) for parameter in self.param
+        ])
 
     @classmethod
-    def new(cls, num_classes: int, focal: int, distortion: int, batch: int, **kwargs):
-        return cls(focal, distortion, batch)
+    def new(cls, num_classes: int, parameters: List[int], batch: int, **kwargs):
+        return cls(parameters, batch)
 
     @staticmethod
     def backbone() \
@@ -61,10 +57,8 @@ class CalibNet(Model):
         return feature
 
     def forward(self, x: torch.Tensor) \
-            -> Tuple[torch.Tensor, torch.Tensor]:
+            -> Tuple[torch.Tensor]:
         feature = self.feature(x)
+        result = tuple(map(F.softmax, map(lambda layer: layer(feature), self.linear)))
 
-        focal_x = self.focal_x(feature)
-        focal_y = self.focal_y(feature)
-
-        return focal_x, focal_y
+        return result

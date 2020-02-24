@@ -17,6 +17,16 @@ class Calib(Dataset):
     CALIB_DIR = 'calibration'
     CALIB_EXT = '.txt'
 
+    PARAMETER = {
+        'center_x': np.arange(1860, 2070, 10),
+        'center_y': np.arange(1325, 1540, 10),
+        'focal_x': np.array([980, 1400, 1514, 1540]),
+        'focal_y': np.array([980, 1400, 1514, 1520]),
+        'up_0': np.array([-1, 0, 1]),
+        'up_1': np.array([-1, 0, 1]),
+        'right_0': np.array([-1, 0, 1]),
+        'right_1': np.array([-1, 0, 1]),
+    }
     SHAPE = 300, 300
 
     def __init__(self, root,
@@ -32,9 +42,6 @@ class Calib(Dataset):
         self.transform = transform
         self.target_transform = target_transform or None
         self.eval_only = eval_only
-
-        self.focal_x = np.arange(1860, 2070, 10)
-        self.focal_y = np.arange(1325, 1540, 10)
 
         # Update options
         for option in options:
@@ -53,10 +60,9 @@ class Calib(Dataset):
     @staticmethod
     def collate(batch):
         images, targets, *_ = zip(*batch)
+        targets = tuple(map(torch.Tensor, zip(*targets)))
 
-        fx, fy = zip(*targets)
-
-        return torch.stack(images, dim=0), (torch.Tensor(fx), torch.Tensor(fy))
+        return torch.stack(images, dim=0), targets
 
     def __getitem__(self, index):
         item = self.pull_item(index)
@@ -85,7 +91,7 @@ class Calib(Dataset):
                 targets = self.target_transform(targets)
 
         if self.transform is not None:
-            image, *targets = self.transform(image, *targets)
+            image, targets = self.transform(image, targets)
 
         return torch.from_numpy(image).permute(2, 0, 1), targets
 
@@ -97,7 +103,7 @@ class Calib(Dataset):
         return image
 
     def pull_anno(self, index: int) \
-            -> Tuple[np.ndarray, np.ndarray]:
+            -> Tuple[np.ndarray, ...]:
         def one_hot(source: np.ndarray, target: np.ndarray) \
                 -> np.ndarray:
             index = np.absolute(np.expand_dims(source, axis=1) - target).argmin(axis=0).squeeze()
@@ -111,7 +117,11 @@ class Calib(Dataset):
         except (pd.errors.EmptyDataError, IndexError):
             calib = np.zeros((3, 4), dtype=np.float32)
 
-        focal_x = one_hot(self.focal_x, calib[0][0])
-        focal_y = one_hot(self.focal_y, calib[0][1])
-
-        return focal_x, focal_y
+        return one_hot(self.PARAMETER['center_x'], calib[0, 0]),\
+            one_hot(self.PARAMETER['center_y'], calib[0, 1]),\
+            one_hot(self.PARAMETER['focal_x'], calib[0, 2]),\
+            one_hot(self.PARAMETER['focal_y'], calib[0, 3]),\
+            one_hot(self.PARAMETER['up_0'], calib[2, 0]),\
+            one_hot(self.PARAMETER['up_1'], calib[2, 1]),\
+            one_hot(self.PARAMETER['right_0'], calib[3, 0]),\
+            one_hot(self.PARAMETER['right_1'], calib[3, 1]),

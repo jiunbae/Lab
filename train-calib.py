@@ -25,10 +25,8 @@ def arguments(parser):
                         help="Beta1 for Adam optimizer")
     parser.add_argument('--b2', required=False, default=.999, type=float,
                         help="Beta2 for Adam optimizer")
-    parser.add_argument('--focal', required=False, default=47, type=int,
-                        help="Size of image")
-    parser.add_argument('--distortion', required=False, default=61, type=int,
-                        help="Size of image")
+    parser.add_argument('--parameters', required=False, nargs='+', default=[21, 22, 4, 4, 3, 3, 3, 3], type=int,
+                        help='')
 
     parser.add_argument('--epoch', required=False, default=100000, type=int,
                         help="epoch")
@@ -85,7 +83,8 @@ def train_calib(model: nn.Module, dataset: Dataset,
             outputs = model(inputs)
 
             optimizer.zero_grad()
-            loss = sum(criterion(output, target) for output, target in zip(outputs, targets))
+            loss = sum(criterion(output, target) * np.log(output.size(1))
+                       for output, target in zip(outputs, targets))
             loss.backward()
             optimizer.step()
 

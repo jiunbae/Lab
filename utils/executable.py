@@ -1,5 +1,6 @@
 import __main__
 import logging
+from typing import Any
 from pathlib import Path
 from pprint import pformat
 
@@ -30,15 +31,21 @@ class Executable:
         self.log('Model initialized')
         return results
 
-    def __call__(self, *args, **kwargs):
-        self.log(f'Model execute {self.command}')
+    def __call__(self, *args, dataset=None, criterion=None, optimizer=None, device=None, **kwargs):
+        self.log(f'Execute: {self.command}', {
+            'dataset': dataset,
+            'criterion': criterion,
+            'optimizer': optimizer,
+            'device': device,
+        })
+
         for dump in getattr(self.module, self.name)(*args, **kwargs):
             self.log('TRAIN', dump)
 
         self.log(f'Model execution done!')
 
     @classmethod
-    def log(cls, prefix: str, target: str = None, level: int = logging.INFO):
+    def log(cls, prefix: str, target: Any = None, level: int = logging.INFO):
         if target is None:
             cls.logger.log(level, prefix)
 
