@@ -41,7 +41,8 @@ class Detection(Dataset):
                  transform=None,
                  target_transform=None,
                  train: bool = True,
-                 eval_only: bool = False):
+                 eval_only: bool = False,
+                 **kwargs):
         self.name = 'Detection'
 
         path, *options = root.split(':')

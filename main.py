@@ -15,8 +15,7 @@ def main(args: Arguments.parse.Namespace):
 
     transform = Augmentation.get(args.type)(size=(args.size, args.size))
     dataset = Dataset.get(args.type)(args.dataset,
-                                     transform=transform,
-                                     train=args.command == 'train')
+                                     transform=transform, train=args.command == 'train', **vars(args))
 
     num_classes = args.classes or dataset.num_classes
     args.classes = num_classes
@@ -26,10 +25,9 @@ def main(args: Arguments.parse.Namespace):
 
     model, optimizer = executor.init(model, device, args)
 
-    criterion = Model.get(args.backbone).loss(num_classes, device=device)
+    criterion = model.loss(num_classes, device=device)
 
-    executor(model, dataset=dataset,
-             criterion=criterion, optimizer=optimizer,
+    executor(model, dataset=dataset, criterion=criterion, optimizer=optimizer,
              device=device, args=args)
 
     Executable.close()

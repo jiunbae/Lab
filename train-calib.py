@@ -26,7 +26,9 @@ def arguments(parser):
     parser.add_argument('--b2', required=False, default=.999, type=float,
                         help="Beta2 for Adam optimizer")
     parser.add_argument('--parameters', required=False, nargs='+', default=[21, 22, 4, 4, 3, 3, 3, 3], type=int,
-                        help='')
+                        help='Parameters list size')
+    parser.add_argument('--regression', required=False, action='store_true', default=False,
+                        help='Regression options')
 
     parser.add_argument('--epoch', required=False, default=100000, type=int,
                         help="epoch")
@@ -58,8 +60,8 @@ def init(model: nn.Module, device: torch.device,
 
 
 def train_calib(model: nn.Module, dataset: Dataset,
-              criterion: nn.Module, optimizer: optim.Optimizer,
-              device: torch.device = None, args: Arguments.parse.Namespace = None, **kwargs) \
+                criterion: nn.Module, optimizer: optim.Optimizer,
+                device: torch.device = None, args: Arguments.parse.Namespace = None, **kwargs) \
         -> Iterator[dict]:
     batch = args.batch
 
@@ -83,8 +85,13 @@ def train_calib(model: nn.Module, dataset: Dataset,
             outputs = model(inputs)
 
             optimizer.zero_grad()
-            loss = sum(criterion(output, target) * np.log(output.size(1))
-                       for output, target in zip(outputs, targets))
+
+            if args.regression:
+                loss = sum(criterion(output, target) for output, target in zip(outputs, targets))
+            else:
+                loss = sum(criterion(output, target) * np.log(output.size(1))
+                           for output, target in zip(outputs, targets))
+
             loss.backward()
             optimizer.step()
 

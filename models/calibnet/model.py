@@ -27,26 +27,27 @@ class swish(nn.Module):
 
 
 class CalibNet(Model):
-    LOSS = nn.CrossEntropyLoss
-    # LOSS = LogCoshLoss
+    # LOSS = nn.CrossEntropyLoss
+    LOSS = LogCoshLoss
 
-    def __init__(self, param: List[int], batch_size: int):
+    def __init__(self, param: List[int], batch_size: int, regression: bool):
         super(CalibNet, self).__init__()
         self.batch_size_ = batch_size
         self.param = param
+        self.regression = regression
 
         self.feature = self.backbone()
         self.linear = nn.ModuleList([
             nn.Sequential(
               nn.Linear(2048, 512),
               nn.ReLU(),
-              nn.Linear(512, parameter),
+              nn.Linear(512, 1 if self.regression else parameter),
             ) for parameter in self.param
         ])
 
     @classmethod
     def new(cls, num_classes: int, parameters: List[int], batch: int, **kwargs):
-        return cls(parameters, batch)
+        return cls(parameters, batch, kwargs['regression'])
 
     @staticmethod
     def backbone() \
@@ -56,9 +57,20 @@ class CalibNet(Model):
 
         return feature
 
+    def loss(self, *args, **kwargs):
+        self.LOSS = nn.MSELoss if self.regression else LogCoshLoss
+
+        try:
+            return self.LOSS(*args, **kwargs)
+        except TypeError:
+            return self.LOSS()
+
     def forward(self, x: torch.Tensor) \
             -> Tuple[torch.Tensor]:
         feature = self.feature(x)
-        result = tuple(map(F.softmax, map(lambda layer: layer(feature), self.linear)))
+        results = map(lambda layer: layer(feature), self.linear)
 
-        return result
+        if self.regression:
+            results = map(F.softmax, results)
+
+        return tuple(results)

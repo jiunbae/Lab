@@ -21,7 +21,7 @@ def init(model: nn.Module, device: torch.device,
 
 
 def test_calib(model: nn.Module, dataset: data.Dataset,
-         device: torch.device = None, args: Arguments.parse.Namespace = None, **kwargs) \
+               device: torch.device = None, args: Arguments.parse.Namespace = None, **kwargs) \
         -> None:
     loader = data.DataLoader(dataset, args.batch, num_workers=args.worker,
                              shuffle=False, pin_memory=True)

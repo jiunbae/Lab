@@ -22,19 +22,26 @@ class Calib(Dataset):
         'center_y': np.arange(1325, 1540, 10),
         'focal_x': np.array([980, 1400, 1514, 1540]),
         'focal_y': np.array([980, 1400, 1514, 1520]),
-        'up_0': np.array([-1, 0, 1]),
-        'up_1': np.array([-1, 0, 1]),
-        'right_0': np.array([-1, 0, 1]),
-        'right_1': np.array([-1, 0, 1]),
+        'up_0': np.array([-1, 0, 1]), 'up_1': np.array([-1, 0, 1]),
+        'right_0': np.array([-1, 0, 1]), 'right_1': np.array([-1, 0, 1]),
     }
+    PARAMETER_INDEX = {
+        'center_x': (0, 0), 'center_y': (0, 1),
+        'focal_x': (0, 2), 'focal_y': (0, 3),
+        'up_0': (2, 0), 'up_1': (2, 1),
+        'right_0': (3, 0), 'right_1': (3, 1),
+    }
+
     SHAPE = 300, 300
 
     def __init__(self, root,
                  transform=None,
                  target_transform=None,
                  train: bool = True,
-                 eval_only: bool = False):
-        self.name = 'Detection'
+                 eval_only: bool = False,
+                 regression: bool = False,
+                 **kwargs):
+        self.name = 'Calibration'
 
         path, *options = root.split(':')
 
@@ -42,6 +49,7 @@ class Calib(Dataset):
         self.transform = transform
         self.target_transform = target_transform or None
         self.eval_only = eval_only
+        self.regression = regression
 
         # Update options
         for option in options:
@@ -107,7 +115,9 @@ class Calib(Dataset):
         def one_hot(source: np.ndarray, target: np.ndarray) \
                 -> np.ndarray:
             index = np.absolute(np.expand_dims(source, axis=1) - target).argmin(axis=0).squeeze()
+
             return np.eye(source.size, dtype=np.int)[index]
+
         try:
             name = self.pull_name(index)
             calibration = next(self.calibrations.glob(f"{'_'.join(name.split('_')[:2])}{self.CALIB_EXT}"))
@@ -117,11 +127,8 @@ class Calib(Dataset):
         except (pd.errors.EmptyDataError, IndexError):
             calib = np.zeros((3, 4), dtype=np.float32)
 
-        return one_hot(self.PARAMETER['center_x'], calib[0, 0]),\
-            one_hot(self.PARAMETER['center_y'], calib[0, 1]),\
-            one_hot(self.PARAMETER['focal_x'], calib[0, 2]),\
-            one_hot(self.PARAMETER['focal_y'], calib[0, 3]),\
-            one_hot(self.PARAMETER['up_0'], calib[2, 0]),\
-            one_hot(self.PARAMETER['up_1'], calib[2, 1]),\
-            one_hot(self.PARAMETER['right_0'], calib[3, 0]),\
-            one_hot(self.PARAMETER['right_1'], calib[3, 1]),
+        return tuple(
+            (calib[self.PARAMETER_INDEX[key]]
+             if self.regression else one_hot(param, calib[self.PARAMETER_INDEX[key]]))
+            for key, param in self.PARAMETER.items()
+        )
