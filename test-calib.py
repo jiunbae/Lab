@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from tqdm import tqdm
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils import data
@@ -28,7 +29,7 @@ def test_calib(model: nn.Module, dataset: data.Dataset,
 
     dest = Path(args.dest)
     dest.mkdir(exist_ok=True)
-    corrects, total = 0, 0
+    corrects, total = iter(int, True), 0
     results = {}
 
     with tqdm(total=len(dataset)) as tq:
@@ -38,15 +39,18 @@ def test_calib(model: nn.Module, dataset: data.Dataset,
             with torch.set_grad_enabled(False):
                 outputs = model(inputs)
 
-            corrects += sum((output.argmax(dim=-1) == label.argmax(dim=-1)).sum()
-                            for output, label in zip(outputs, labels)).item()
-            total += len(labels) * args.batch
+            corrects = np.array(tuple(map(sum, zip(corrects, (
+                (output.argmax(dim=-1) == label.argmax(dim=-1)).sum().item()
+                for output, label in zip(outputs, labels)
+            )))))
+            total += args.batch
 
-            tq.set_postfix(acc=corrects / total)
-            tq.update(args.batch)
+            with np.printoptions(precision=2, suppress=True):
+                tq.set_postfix(acc=corrects/total)
+                tq.update(args.batch)
 
     results.update({
-        'accuracy': float(corrects / total),
+        'accuracy': (corrects/total).astype(np.float).tolist(),
         'total': int(total),
     })
 
